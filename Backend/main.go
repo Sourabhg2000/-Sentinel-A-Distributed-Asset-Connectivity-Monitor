@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"Golang_Test/config"
+	"Golang_Test/model"
 	"Golang_Test/routes"
 )
 
@@ -20,6 +21,7 @@ func main() {
 
 	// 2. Initialize MongoDB connection
 	config.ConnectDB()
+	model.StartMonitorWorker() // Start the background worker for health checks
 	defer config.DisconnectDB()
 
 	// 3. Initialize Gin router
@@ -28,8 +30,10 @@ func main() {
 	// 4. CORS Configuration
 	// Note: renamed variable to 'corsConfig' to avoid conflict with 'config' package
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{"http://localhost:5173"}
-	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+	corsConfig.AllowOrigins = []string{"http://localhost:5174"}
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Authorization", "Accept", "service-header"}
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	corsConfig.AllowCredentials = true
 
 	// CRITICAL: Added "Authorization" and "Accept" to allow JWT tokens
 	corsConfig.AllowHeaders = []string{
@@ -38,6 +42,7 @@ func main() {
 		"Content-Type",
 		"Authorization",
 		"Accept",
+		"service-header",
 	}
 
 	// Allow browser to send credentials (cookies, auth headers)

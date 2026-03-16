@@ -1,334 +1,253 @@
 <template>
-  <div class="login-container">
-    <div class="background-blob blob-1"></div>
-    <div class="background-blob blob-2"></div>
+  <div class="dashboard-wrapper">
+    <div class="mesh-bg"></div>
 
-    <Card class="login-card">
-      <template #header>
-        <div class="card-header">
-          <i class="pi pi-shield user-icon"></i>
-          <h2 class="welcome-text">Sentinel</h2>
-          <p class="subtitle">High-Availability Monitoring</p>
+    <header class="stats-header">
+      <div class="brand">
+        <i class="pi pi-shield logo-icon"></i>
+        <h1>SENTINEL<span>.OS</span></h1>
+      </div>
+      <div class="quick-stats">
+        <div class="stat-item">
+          <span class="label">OPERATIONAL</span>
+          <span class="value text-cyan">{{ upCount }}</span>
         </div>
-      </template>
+        <div class="stat-item">
+          <span class="label">DEGRADED</span>
+          <span class="value text-rose">{{ downCount }}</span>
+        </div>
+      </div>
+      <div class="user-profile">
+        <img :src="userAvatar" class="avatar" />
+        <Button icon="pi pi-power-off" class="p-button-rounded p-button-text text-slate" @click="logout" />
+      </div>
+    </header>
 
-      <template #content>
-        <div class="login-form">
-          <Button
-            @click="handleGoogleLogin"
-            class="google-btn"
-            :loading="googleLoading"
-          >
-            <i class="pi pi-google mr-2"></i>
-            <span>Sign in with Google</span>
-          </Button>
+    <main class="content-area">
+      <section class="action-bar">
+        <div class="input-container">
+          <i class="pi pi-globe globe-icon"></i>
+          <InputText 
+            v-model="newUrl" 
+            placeholder="Enter URL to monitor (e.g. https://mahadnyandeep.org/)" 
+            class="url-input"
+            @keyup.enter="addNewTarget"
+          />
+          <Button 
+            label="Initialize Probe" 
+            icon="pi pi-plus" 
+            class="add-btn" 
+            :loading="isAdding"
+            @click="addNewTarget" 
+          />
+        </div>
+      </section>
 
-          <div class="divider">
-            <span>OR CONTINUE WITH EMAIL</span>
-          </div>
-
-          <form @submit.prevent="handleLogin" class="inner-form">
-            <div class="input-group">
-              <label class="label-text">Email</label>
-              <InputText
-                v-model="username"
-                placeholder="admin@sentinel.com"
-                class="modern-input"
-                required
-              />
-            </div>
-
-            <div class="input-group">
-              <label class="label-text">Password</label>
-              <Password
-                v-model="password"
-                :feedback="false"
-                toggleMask
-                placeholder="••••••••"
-                inputClass="modern-input"
-                class="password-wrapper"
-                required
-              />
-            </div>
-
-            <transition name="fade">
-              <div v-if="store.loginError" class="error-container">
-                {{ store.loginError }}
+      <section class="monitor-grid">
+        <div v-for="site in targets" :key="site.id" class="site-card">
+          <div class="card-glow" :class="site.status === 'UP' ? 'glow-green' : 'glow-red'"></div>
+          
+          <div class="card-content">
+            <div class="site-info">
+              <div class="status-indicator">
+                <span class="dot" :class="site.status === 'UP' ? 'bg-green' : 'bg-red'"></span>
+                <span class="status-text">{{ site.status }}</span>
               </div>
-            </transition>
+              <h3 class="site-url">{{ site.url }}</h3>
+            </div>
 
-            <Button
-              type="submit"
-              label="Login to Dashboard"
-              class="login-btn"
-              :loading="loading"
-            />
-          </form>
+            <div class="metrics">
+              <div class="metric">
+                <span class="m-label">LATENCY</span>
+                <span class="m-value">{{ site.latency }}ms</span>
+              </div>
+              <div class="metric">
+                <span class="m-label">UPTIME</span>
+                <span class="m-value">99.9%</span>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <Button icon="pi pi-chart-bar" class="p-button-text p-button-sm" />
+              <Button icon="pi pi-trash" class="p-button-text p-button-danger p-button-sm" @click="removeTarget(site.id)" />
+            </div>
+          </div>
         </div>
-      </template>
-    </Card>
+      </section>
+    </main>
   </div>
 </template>
 
 <style scoped>
-
-.login-container {
+.dashboard-wrapper {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(6,182,212,0.15), transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(59,130,246,0.15), transparent 40%),
-    linear-gradient(135deg,#020617,#020617,#0f172a);
+  background: #020617;
+  color: #f8fafc;
+  padding: 1.5rem;
   position: relative;
-  overflow: hidden;
-  padding: 20px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
 }
 
-/* PREMIUM BACKGROUND BLOBS */
-
-.background-blob {
+.mesh-bg {
   position: absolute;
-  width: 550px;
-  height: 550px;
-  border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.35;
-  z-index: 0;
-  animation: float 12s ease-in-out infinite;
+  inset: 0;
+  background: radial-gradient(circle at 50% -20%, rgba(6, 182, 212, 0.1), transparent);
+  pointer-events: none;
 }
 
-.blob-1 {
-  background: radial-gradient(circle, #22d3ee, #0891b2);
-  top: -120px;
-  right: -120px;
-}
-
-.blob-2 {
-  background: radial-gradient(circle, #3b82f6, #1d4ed8);
-  bottom: -120px;
-  left: -120px;
-}
-
-@keyframes float {
-  0% { transform: translateY(0px) }
-  50% { transform: translateY(20px) }
-  100% { transform: translateY(0px) }
-}
-
-/* PREMIUM CARD */
-
-.login-card {
-  width: 100%;
-  max-width: 420px;
-  z-index: 1;
-
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(20px);
-
-  border-radius: 24px;
-  padding: 10px;
-
-  border: 1px solid rgba(255,255,255,0.25);
-
-  box-shadow:
-    0 30px 60px rgba(0,0,0,0.65),
-    0 0 0 1px rgba(255,255,255,0.1) inset;
-}
-
-/* HEADER */
-
-.card-header {
-  text-align: center;
-  padding: 20px 10px 10px;
-}
-
-.user-icon {
-  font-size: 3.2rem;
-  color: #06b6d4;
-  margin-bottom: 8px;
-
-  filter: drop-shadow(0 0 8px rgba(6,182,212,0.6));
-}
-
-.welcome-text {
-  font-size: 1.7rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #0f172a;
-}
-
-.subtitle {
-  font-size: 0.9rem;
-  color: #64748b;
-  margin-top: 4px;
-}
-
-/* GOOGLE BUTTON */
-
-.google-btn {
-  width: 100%;
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border: 1px solid #e2e8f0 !important;
-  padding: 12px !important;
-  border-radius: 12px !important;
-  font-weight: 600 !important;
-
+/* --- Header & Stats --- */
+.stats-header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-
-  transition: all 0.25s ease;
+  padding: 1rem 2rem;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 2rem;
 }
 
-.google-btn:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 8px 20px rgba(0,0,0,0.1);
-}
+.brand h1 { font-size: 1.2rem; font-weight: 800; letter-spacing: 2px; }
+.brand span { color: #06b6d4; }
+.logo-icon { color: #06b6d4; margin-right: 10px; }
 
-/* DIVIDER */
+.quick-stats { display: flex; gap: 3rem; }
+.stat-item { display: flex; flex-direction: column; }
+.label { font-size: 0.65rem; color: #64748b; font-weight: 700; }
+.value { font-size: 1.5rem; font-weight: 800; }
 
-.divider {
+.avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #06b6d4; }
+
+/* --- Action Bar --- */
+.action-bar { margin-bottom: 3rem; display: flex; justify-content: center; }
+.input-container {
   display: flex;
   align-items: center;
-  text-align: center;
-  margin: 1.6rem 0;
-  color: #94a3b8;
-  font-size: 0.7rem;
-  letter-spacing: 1px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  padding: 0.5rem 0.5rem 0.5rem 1.5rem;
+  border-radius: 100px;
+  width: 100%;
+  max-width: 700px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.divider:not(:empty)::before { margin-right: .6em; }
-.divider:not(:empty)::after { margin-left: .6em; }
-
-/* FORM */
-
-.inner-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.3rem;
-}
-
-.label-text {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-/* INPUT */
-
-.modern-input,
-:deep(.modern-input) {
-  width: 100% !important;
-  padding: 13px 16px !important;
-
-  border-radius: 12px !important;
-  border: 1px solid #cbd5e1 !important;
-
-  transition: all 0.25s ease;
-}
-
-.modern-input:focus,
-:deep(.modern-input:focus) {
-  border-color: #0ea5e9 !important;
-  box-shadow: 0 0 0 3px rgba(14,165,233,0.15);
-}
-
-/* LOGIN BUTTON */
-
-.login-btn {
-  margin-top: 6px;
-
-  background: linear-gradient(135deg,#06b6d4,#2563eb) !important;
-
+.url-input {
+  background: transparent !important;
   border: none !important;
-  border-radius: 12px !important;
-
-  font-weight: 600 !important;
-
-  transition: all 0.25s ease;
+  color: white !important;
+  flex-grow: 1;
+  font-size: 1rem;
 }
 
-.login-btn:hover {
-  transform: translateY(-2px);
-
-  box-shadow:
-    0 10px 25px rgba(37,99,235,0.4);
+.add-btn {
+  background: linear-gradient(135deg, #06b6d4, #2563eb) !important;
+  border: none !important;
+  border-radius: 100px !important;
+  padding: 0.8rem 1.5rem !important;
 }
 
-/* ERROR */
-
-.error-container {
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.2);
-  color: #b91c1c;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 0.8rem;
+/* --- Monitor Grid --- */
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
 }
 
-/* FADE */
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity .25s;
+.site-card {
+  position: relative;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 24px;
+  padding: 1.5rem;
+  overflow: hidden;
+  transition: transform 0.3s ease;
 }
 
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.site-card:hover { transform: translateY(-5px); }
+
+.card-glow {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 4px;
 }
+.glow-green { background: #10b981; box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4); }
+.glow-red { background: #f43f5e; box-shadow: 0 4px 20px rgba(244, 63, 94, 0.4); }
+
+.status-indicator { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.bg-green { background: #10b981; box-shadow: 0 0 10px #10b981; }
+.bg-red { background: #f43f5e; box-shadow: 0 0 10px #f43f5e; }
+.status-text { font-size: 0.7rem; font-weight: 800; color: #94a3b8; }
+
+.site-url { font-size: 1.1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.metrics { display: flex; justify-content: space-between; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); }
+.m-label { display: block; font-size: 0.6rem; color: #64748b; }
+.m-value { font-size: 1rem; font-weight: 700; color: #cbd5e1; }
 </style>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useAuthStore } from '../store/login';
-import { useRouter } from "vue-router";
-import InputText from "primevue/inputtext";
-import Password from "primevue/password";
-import Button from "primevue/button";
-import Card from "primevue/card";
+import { ref, computed, onMounted } from 'vue';
+import InputText from 'primevue/inputtext';
+import Button from 'primevue/button';
+import axios from 'axios';
 
-const store = useAuthStore();
-const router = useRouter();
+// Mock Data for the vivid demo
+const targets = ref([
 
-const username = ref('');
-const password = ref('');
-const loading = ref(false);
-const googleLoading = ref(false);
+]);
 
-const handleLogin = async () => {
-    loading.value = true;
-    try {
-        const success = await store.login(username.value, password.value);
-        if (success) {
-            router.push("/dashboard"); // Updated to our actual dashboard route
-        }
-    } finally {
-        loading.value = false;
-    }
-}
+const newUrl = ref('');
+const isAdding = ref(false);
+const userAvatar = ref('https://ui-avatars.com/api/?name=Admin&background=06b6d4&color=fff');
 
-// OAuth 2.0 Implementation
-const handleGoogleLogin = () => {
-    googleLoading.value = true;
-    // Industry standard: Redirect to backend which handles the OAuth handshake
-    window.location.href = "http://localhost:8080/auth/google";
-}
+const upCount = computed(() => targets.value.filter(t => t.status === 'UP').length);
+const downCount = computed(() => targets.value.filter(t => t.status === 'DOWN').length);
 
 onMounted(() => {
-    store.logout();
+    fetchTargets();
 });
+
+const addNewTarget = async () => {
+    if (!newUrl.value) return;
+    
+    isAdding.value = true;
+    try {
+        const response = await axios.post('http://localhost:8000/o/target', {
+            url: newUrl.value,
+            interval_seconds: 60 // Monitoring frequency
+        }, { 
+            withCredentials: true 
+        });
+
+        // Add the new target returned by MongoDB to your reactive list
+        targets.value.unshift(response.data);
+        newUrl.value = ''; 
+    } catch (error) {
+        console.error("Monitoring initialization failed:", error.response?.data || error.message);
+    } finally {
+        fetchTargets();
+        isAdding.value = false;
+    }
+};
+
+const fetchTargets = async () => {
+    try {
+        const response = await axios.post('http://localhost:8000/o/targets', { 
+            withCredentials: true 
+        });
+        targets.value = response.data;
+    } catch (error) {
+        console.error("Failed to fetch targets:", error.response?.data || error.message);
+    }
+};
+
+const removeTarget = (id) => {
+  targets.value = targets.value.filter(t => t.id !== id);
+};
+
+const logout = () => {
+  // Logic to clear JWT and redirect to login
+  window.location.href = '/login';
+};
 </script>
